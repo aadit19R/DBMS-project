@@ -184,15 +184,14 @@ function initAuth() {
     appContainer.classList.remove("hidden");
 
     if (role === "admin") {
-      document.getElementById("nav-dashboard").classList.remove("hidden");
-      document.getElementById("nav-query").classList.remove("hidden");
-      document.getElementById("nav-schema-map").classList.remove("hidden");
+      document.getElementById("nav-admin").classList.remove("hidden");
+      document.getElementById("nav-user").classList.add("hidden");
       showSection("dashboard");
       loadDashboard();
     } else {
-      document.getElementById("nav-dashboard").classList.add("hidden");
-      document.getElementById("nav-query").classList.add("hidden");
-      showSection("products");
+      document.getElementById("nav-admin").classList.add("hidden");
+      document.getElementById("nav-user").classList.remove("hidden");
+      showSection("storefront");
     }
   }
 }
@@ -200,7 +199,7 @@ function initAuth() {
 // -------------------------------------------------------------------
 // Section Navigation
 // -------------------------------------------------------------------
-const SECTIONS = ["dashboard", "products", "orders", "query", "schema-map"];
+const SECTIONS = ["dashboard", "products", "orders", "query", "schema-map", "storefront", "my-orders"];
 
 function showSection(id) {
   SECTIONS.forEach(s => {
@@ -209,6 +208,8 @@ function showSection(id) {
   if (id === "products")    loadProducts();
   if (id === "orders")      loadOrders();
   if (id === "schema-map")  refreshSchemaMap();
+  if (id === "storefront")  loadStorefront();
+  if (id === "my-orders")   loadMyOrders();
 }
 
 // -------------------------------------------------------------------
@@ -241,7 +242,224 @@ function buildTable(tbodyId, rows, buildRow) {
 }
 
 // -------------------------------------------------------------------
-// Dashboard
+// Storefront & Cart (User)
+// -------------------------------------------------------------------
+let storefrontProducts = [];
+let cart = JSON.parse(localStorage.getItem("cart") || "[]");
+
+function saveCart() {
+  localStorage.setItem("cart", JSON.stringify(cart));
+}
+
+async function loadStorefront() {
+  try {
+    storefrontProducts = await apiFetch("/products").then(r => r.json());
+    
+    // Populate categories
+    const categories = [...new Set(storefrontProducts.map(p => p.category))];
+    const select = document.getElementById("store-category");
+    select.innerHTML = `<option value="">All Categories</option>` + 
+                       categories.map(c => `<option value="${c}">${c}</option>`).join("");
+    
+    filterStorefront();
+  } catch (err) {
+    console.error("Storefront error:", err);
+  }
+}
+
+function filterStorefront() {
+  const query = document.getElementById("store-search").value.toLowerCase();
+  const cat   = document.getElementById("store-category").value;
+  const grid  = document.getElementById("store-grid");
+
+  const filtered = storefrontProducts.filter(p => {
+    const matchesQuery = p.name.toLowerCase().includes(query);
+    const matchesCat   = !cat || p.category === cat;
+    return matchesQuery && matchesCat;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="col-span-full text-center text-gray-500 py-10">No products found.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => `
+    <div class="bg-white rounded-lg shadow-md overflow-hidden border flex flex-col hover:shadow-lg transition">
+      <div class="p-4 flex-1">
+        <div class="text-xs text-indigo-500 uppercase font-bold tracking-wide mb-1">${fmt(p.category)}</div>
+        <h3 class="text-lg font-bold text-gray-800 mb-2 truncate" title="${p.name}">${fmt(p.name)}</h3>
+        <p class="text-xl text-gray-900 font-extrabold mb-4">${fmtMoney(p.price)}</p>
+      </div>
+      <div class="p-4 bg-gray-50 border-t">
+        <button onclick='addToCart(${JSON.stringify(p).replace(/'/g, "&apos;")})' class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            Add to Cart
+        </button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleCart() {
+  const overlay = document.getElementById("cart-overlay");
+  const sidebar = document.getElementById("cart-sidebar");
+  
+  if (sidebar.classList.contains("translate-x-full")) {
+    overlay.classList.remove("hidden");
+    sidebar.classList.remove("translate-x-full");
+    renderCart();
+  } else {
+    overlay.classList.add("hidden");
+    sidebar.classList.add("translate-x-full");
+  }
+}
+
+function addToCart(product) {
+  const existing = cart.find(item => item.product_id === product.product_id);
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    cart.push({
+      product_id: product.product_id,
+      name: product.name,
+      unit_price: product.price,
+      quantity: 1
+    });
+  }
+  renderCart();
+  saveCart();
+  
+  // Pulse animation on the cart count
+  const countBadge = document.getElementById("cart-count");
+  countBadge.classList.add("animate-ping");
+  setTimeout(() => countBadge.classList.remove("animate-ping"), 300);
+}
+
+function updateQuantity(pid, delta) {
+  const index = cart.findIndex(item => item.product_id === pid);
+  if (index !== -1) {
+    cart[index].quantity += delta;
+    if (cart[index].quantity <= 0) {
+      cart.splice(index, 1);
+    }
+  }
+  renderCart();
+  saveCart();
+}
+
+function renderCart() {
+  const itemsContainer = document.getElementById("cart-items");
+  const subtotalBox    = document.getElementById("cart-subtotal");
+  const countBadge     = document.getElementById("cart-count");
+  const checkoutBtn    = document.getElementById("checkout-btn");
+
+  let totalCount = 0;
+  let subtotal   = 0;
+
+  if (cart.length === 0) {
+    itemsContainer.innerHTML = `<div class="text-center text-gray-500 mt-10">Your cart is empty.</div>`;
+    checkoutBtn.classList.add("opacity-50", "cursor-not-allowed");
+    checkoutBtn.disabled = true;
+  } else {
+    checkoutBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    checkoutBtn.disabled = false;
+
+    itemsContainer.innerHTML = cart.map(item => {
+      totalCount += item.quantity;
+      subtotal += item.quantity * item.unit_price;
+
+      return `
+        <div class="flex justify-between items-center bg-white p-3 border rounded shadow-sm">
+          <div class="flex-1 min-w-0 pr-4">
+            <h4 class="font-bold text-sm text-gray-800 truncate" title="${item.name}">${fmt(item.name)}</h4>
+            <p class="text-xs text-gray-500">${fmtMoney(item.unit_price)} each</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border rounded">
+              <button onclick="updateQuantity(${item.product_id}, -1)" class="px-2 py-1 text-gray-600 hover:bg-gray-100">-</button>
+              <span class="px-2 text-sm font-bold w-6 text-center">${item.quantity}</span>
+              <button onclick="updateQuantity(${item.product_id}, 1)" class="px-2 py-1 text-gray-600 hover:bg-gray-100">+</button>
+            </div>
+            <div class="font-bold text-indigo-600 text-sm w-16 text-right">
+              ${fmtMoney(item.quantity * item.unit_price)}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  countBadge.textContent = totalCount;
+  subtotalBox.textContent = fmtMoney(subtotal);
+}
+
+async function checkout() {
+  console.log("Starting checkout...", cart);
+  if (cart.length === 0) return;
+  
+  const errBox = document.getElementById("checkout-error");
+  const btn    = document.getElementById("checkout-btn");
+  errBox.classList.add("hidden");
+  btn.disabled = true;
+  btn.textContent = "Processing...";
+
+  try {
+    const res = await apiFetch("/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cart })
+    });
+    const data = await res.json();
+    console.log("Checkout Response:", data);
+    if (!res.ok) throw new Error(data.error || "Checkout failed");
+
+    // Clear cart and reset UI on success
+    cart = [];
+    saveCart();
+    renderCart();
+    toggleCart();
+    
+    // Auto-navigate to My Orders where the newly inserted order will be fetched
+    showSection("my-orders");
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Place Order";
+  }
+}
+
+async function loadMyOrders() {
+  console.log("Loading orders...");
+  try {
+    const orders = await apiFetch("/my-orders").then(r => r.json());
+    const tbody = document.getElementById("my-orders-body");
+    
+    if (!orders || orders.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No orders found.</td></tr>`;
+      return;
+    }
+    
+    tbody.innerHTML = orders.map(o => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${o.order_id}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${fmt(o.order_date)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${statusBadge(o.status)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">${fmtMoney(o.total_amount)}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">
+            <ul class="list-disc pl-4">
+                ${(o.items || []).map(item => `<li>${item.quantity}x ${fmt(item.product_name)}</li>`).join("")}
+            </ul>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("My orders error:", err);
+  }
+}
+
+// -------------------------------------------------------------------
+// Dashboard Admin Views
 // -------------------------------------------------------------------
 let chartMonth    = null;
 let chartCategory = null;
@@ -309,9 +527,6 @@ async function loadDashboard() {
   }
 }
 
-// -------------------------------------------------------------------
-// Products
-// -------------------------------------------------------------------
 async function loadProducts() {
   try {
     const rows = await apiFetch("/products").then(r => r.json());
@@ -329,9 +544,6 @@ async function loadProducts() {
   }
 }
 
-// -------------------------------------------------------------------
-// Orders
-// -------------------------------------------------------------------
 async function loadOrders() {
   try {
     const rows = await apiFetch("/orders").then(r => r.json());
@@ -340,7 +552,14 @@ async function loadOrders() {
         <td class="px-3 py-2">${fmt(r.order_id)}</td>
         <td class="px-3 py-2">${fmt(r.customer)}</td>
         <td class="px-3 py-2">${fmt(r.order_date)}</td>
-        <td class="px-3 py-2">${statusBadge(r.status)}</td>
+        <td class="px-3 py-2">
+            <select onchange="updateOrderStatus(${r.order_id}, this.value)" class="bg-gray-700 text-white rounded px-2 py-1 text-sm border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="pending" ${r.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="shipped" ${r.status === 'shipped' ? 'selected' : ''}>Shipped</option>
+                <option value="delivered" ${r.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                <option value="cancelled" ${r.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+        </td>
         <td class="px-3 py-2">${fmt(r.item_count)}</td>
         <td class="px-3 py-2">${fmtMoney(r.total_amount)}</td>
       </tr>`
@@ -350,9 +569,28 @@ async function loadOrders() {
   }
 }
 
-// -------------------------------------------------------------------
-// SQL Query Runner
-// -------------------------------------------------------------------
+async function updateOrderStatus(orderId, newStatus) {
+    try {
+        const res = await apiFetch(`/admin/orders/${orderId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.error || "Failed to update status");
+        }
+        
+        // Show success alert
+        alert(`Success: Order #${orderId} updated to ${newStatus}`);
+    } catch (err) {
+        alert("Error updating order status: " + err.message);
+        // Revert UI automatically by reloading orders
+        loadOrders();
+    }
+}
+
 async function runQuery() {
   const sql     = document.getElementById("query-input").value.trim();
   const errBox  = document.getElementById("query-error");
@@ -484,3 +722,4 @@ async function refreshSchemaMap() {
 // Init
 // -------------------------------------------------------------------
 initAuth();
+renderCart();
