@@ -86,3 +86,16 @@ CREATE TABLE warehouse_inventory (
     CONSTRAINT fk_wi_product   FOREIGN KEY (product_id)   REFERENCES products(product_id),
     CONSTRAINT uq_warehouse_product UNIQUE (warehouse_id, product_id)
 );
+
+-- -----------------------------------------------------
+-- Table: users
+-- -----------------------------------------------------
+CREATE TABLE users (
+    user_id       INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(50) NOT NULL UNIQUE,
+    email         VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role          ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+    customer_id   INT,
+    CONSTRAINT fk_user_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);

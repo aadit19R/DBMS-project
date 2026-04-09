@@ -2,9 +2,17 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
 import re
+from werkzeug.security import check_password_hash, generate_password_hash
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt, get_jwt_identity
+from itsdangerous import URLSafeTimedSerializer
 
 app = Flask(__name__)
 CORS(app)
+
+# JWT Setup
+app.config["JWT_SECRET_KEY"] = "super-secret-key"  # Change this in production
+jwt = JWTManager(app)
+serializer = URLSafeTimedSerializer(app.config["JWT_SECRET_KEY"])
 
 # -------------------------------------------------------------------
 # DB Connection
@@ -12,7 +20,7 @@ CORS(app)
 DB_CONFIG = {
     "host":     "localhost",
     "user":     "root",
-    "password": "Hellokitty@2",   # <-- update this
+    "password": "Hellokitty@2", 
     "database": "ecommerce_db"
 }
 
@@ -37,9 +45,132 @@ def query_db(sql, params=None):
 
 
 # -------------------------------------------------------------------
+# /login  — authenticate and return JWT
+# -------------------------------------------------------------------
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+
+    sql = "SELECT user_id, username, password_hash, role, customer_id FROM users WHERE username = %s"
+    users = query_db(sql, (username,))
+
+    if not users:
+        return jsonify({"error": "Invalid username or password"}), 401
+    
+    user = users[0]
+    if not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid username or password"}), 401
+    
+    # Create token with additional claims
+    additional_claims = {
+        "role": user["role"],
+        "customer_id": user["customer_id"]
+    }
+    # Identity must be a string or number, we'll use user_id
+    access_token = create_access_token(identity=str(user["user_id"]), additional_claims=additional_claims)
+    
+    return jsonify({
+        "access_token": access_token,
+        "role": user["role"],
+        "customer_id": user["customer_id"]
+    }), 200
+
+
+# -------------------------------------------------------------------
+# /register  — register new user
+# -------------------------------------------------------------------
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    name = data.get("name")
+    email = data.get("email")
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not all([name, email, username, password]):
+        return jsonify({"error": "Missing fields"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # Check if username or email exists in users table
+        cursor.execute("SELECT user_id FROM users WHERE username = %s OR email = %s", (username, email))
+        if cursor.fetchone():
+            return jsonify({"error": "Username or email already exists"}), 400
+
+        # Insert customer
+        cursor.execute("INSERT INTO customers (name, email) VALUES (%s, %s)", (name, email))
+        customer_id = cursor.lastrowid
+        
+        # Insert user
+        password_hash = generate_password_hash(password)
+        cursor.execute(
+            "INSERT INTO users (username, email, password_hash, role, customer_id) VALUES (%s, %s, %s, 'user', %s)",
+            (username, email, password_hash, customer_id)
+        )
+        conn.commit()
+        return jsonify({"message": "Registration successful"}), 201
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+# -------------------------------------------------------------------
+# /forgot-password  — mock sending reset token
+# -------------------------------------------------------------------
+@app.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json()
+    email = data.get("email")
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+    
+    users = query_db("SELECT user_id FROM users WHERE email = %s", (email,))
+    if not users:
+        # Don't reveal if email exists or not
+        return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
+        
+    token = serializer.dumps(email, salt='password-reset')
+    reset_link = f"http://localhost:8000/?reset_token={token}"
+    print(f"Password Reset Link: {reset_link}")
+    
+    return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
+
+# -------------------------------------------------------------------
+# /reset-password  — reset password with token
+# -------------------------------------------------------------------
+@app.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json()
+    token = data.get("token")
+    new_password = data.get("new_password")
+    
+    if not token or not new_password:
+        return jsonify({"error": "Missing token or new password"}), 400
+        
+    try:
+        email = serializer.loads(token, salt='password-reset', max_age=3600)
+    except Exception:
+        return jsonify({"error": "Invalid or expired token"}), 400
+        
+    password_hash = generate_password_hash(new_password)
+    query_db("UPDATE users SET password_hash = %s WHERE email = %s", (password_hash, email))
+    
+    return jsonify({"message": "Password updated successfully"}), 200
+
+
+# -------------------------------------------------------------------
 # /products  — list all products with supplier name
 # -------------------------------------------------------------------
 @app.route("/products")
+@jwt_required()
 def get_products():
     sql = """
         SELECT
@@ -59,7 +190,12 @@ def get_products():
 # /customers  — list all customers
 # -------------------------------------------------------------------
 @app.route("/customers")
+@jwt_required()
 def get_customers():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
     sql = """
         SELECT customer_id, name, email, phone, address
         FROM customers
@@ -72,7 +208,12 @@ def get_customers():
 # /orders  — list all orders with customer name and item count
 # -------------------------------------------------------------------
 @app.route("/orders")
+@jwt_required()
 def get_orders():
+    claims = get_jwt()
+    role = claims.get("role")
+    customer_id = claims.get("customer_id")
+
     sql = """
         SELECT
             o.order_id,
@@ -84,17 +225,31 @@ def get_orders():
         FROM orders o
         JOIN customers  c  ON o.customer_id  = c.customer_id
         JOIN order_items oi ON o.order_id    = oi.order_id
+    """
+    
+    params = []
+    if role == "user":
+        sql += " WHERE o.customer_id = %s "
+        params.append(customer_id)
+
+    sql += """
         GROUP BY o.order_id, c.name, o.order_date, o.status, o.total_amount
         ORDER BY o.order_date DESC
     """
-    return jsonify(query_db(sql))
+    return jsonify(query_db(sql, tuple(params)))
+
 
 
 # -------------------------------------------------------------------
 # /analytics  — aggregated stats for dashboard
 # -------------------------------------------------------------------
 @app.route("/analytics")
+@jwt_required()
 def get_analytics():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
     # Summary cards
     summary = query_db("""
         SELECT
@@ -170,7 +325,12 @@ BLOCKED = re.compile(
 )
 
 @app.route("/run-query", methods=["POST"])
+@jwt_required()
 def run_query():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
     data = request.get_json()
     sql  = (data or {}).get("query", "").strip()
 

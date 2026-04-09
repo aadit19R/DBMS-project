@@ -68,3 +68,11 @@ INSERT INTO warehouse_inventory (warehouse_id, product_id, quantity_stored) VALU
 (3, 6, 250),  -- East Coast: Desk Lamp
 (1, 5,  80),  -- West Coast: Coffee Maker (also stocked here)
 (2, 1, 100);  -- Central: Wireless Headphones (also stocked here)
+
+-- -----------------------------------------------------
+-- Users
+-- -----------------------------------------------------
+-- password for all users is "password"
+INSERT INTO users (username, email, password_hash, role, customer_id) VALUES
+('admin', 'admin@example.com', 'scrypt:32768:8:1$DKPyZxIaf7Dqt9Se$57e604faeba8a0488917d9b4687c9e2200a1b5fe54320144375d8dd5439a2102edbb4a10b8c39a6c439de095f81572871655b31eccf5a0755eae934681fc5586', 'admin', NULL),
+('user1', 'user1@example.com', 'scrypt:32768:8:1$DKPyZxIaf7Dqt9Se$57e604faeba8a0488917d9b4687c9e2200a1b5fe54320144375d8dd5439a2102edbb4a10b8c39a6c439de095f81572871655b31eccf5a0755eae934681fc5586', 'user', 1);
