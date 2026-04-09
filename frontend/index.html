@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>E-Commerce Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+  <!-- Nav -->
+  <nav class="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between shadow">
+    <h1 class="text-xl font-bold tracking-wide">E-Commerce DBMS</h1>
+    <div class="flex gap-4 text-sm font-medium">
+      <button onclick="showSection('dashboard')" class="hover:underline">Dashboard</button>
+      <button onclick="showSection('products')"  class="hover:underline">Products</button>
+      <button onclick="showSection('orders')"    class="hover:underline">Orders</button>
+      <button onclick="showSection('query')"     class="hover:underline">SQL Query</button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <section id="dashboard">
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4">
+          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Sales</p>
+          <p id="card-sales" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Orders</p>
+          <p id="card-orders" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+          <p class="text-xs text-gray-500 uppercase tracking-wide">Active Customers</p>
+          <p id="card-customers" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Products</p>
+          <p id="card-products" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Month</h2>
+          <canvas id="chartMonth" height="200"></canvas>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Category</h2>
+          <canvas id="chartCategory" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- Top Products Table -->
+      <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <h2 class="text-sm font-semibold text-gray-600 mb-3">Top Selling Products</h2>
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+            <tr>
+              <th class="px-3 py-2">Product</th>
+              <th class="px-3 py-2">Units Sold</th>
+              <th class="px-3 py-2">Revenue</th>
+            </tr>
+          </thead>
+          <tbody id="top-products-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+
+      <!-- Customer History Table -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-sm font-semibold text-gray-600 mb-3">Customer Order History</h2>
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+            <tr>
+              <th class="px-3 py-2">Customer</th>
+              <th class="px-3 py-2">Orders</th>
+              <th class="px-3 py-2">Total Spent</th>
+            </tr>
+          </thead>
+          <tbody id="customer-history-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== PRODUCTS ===================== -->
+    <section id="products" class="hidden">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-sm font-semibold text-gray-600 mb-3">All Products</h2>
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+            <tr>
+              <th class="px-3 py-2">ID</th>
+              <th class="px-3 py-2">Name</th>
+              <th class="px-3 py-2">Category</th>
+              <th class="px-3 py-2">Price</th>
+              <th class="px-3 py-2">Supplier</th>
+            </tr>
+          </thead>
+          <tbody id="products-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== ORDERS ===================== -->
+    <section id="orders" class="hidden">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-sm font-semibold text-gray-600 mb-3">All Orders</h2>
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+            <tr>
+              <th class="px-3 py-2">Order ID</th>
+              <th class="px-3 py-2">Customer</th>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Items</th>
+              <th class="px-3 py-2">Total</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== SQL QUERY ===================== -->
+    <section id="query" class="hidden">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-sm font-semibold text-gray-600 mb-3">SQL Query Runner</h2>
+        <p class="text-xs text-gray-400 mb-2">Run any queries except schema modifications (DDL).</p>
+        <textarea
+          id="query-input"
+          rows="5"
+          placeholder="SELECT * FROM products; OR UPDATE products SET price = 20 WHERE product_id = 1;"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3"
+        ></textarea>
+        <button
+          onclick="runQuery()"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded"
+        >Run Query</button>
+
+        <div id="query-error" class="hidden mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
+
+        <div id="query-results" class="hidden mt-4 overflow-x-auto">
+          <table class="w-full text-sm text-left border border-gray-200 rounded">
+            <thead id="query-thead" class="bg-gray-50 text-gray-500 uppercase text-xs"></thead>
+            <tbody id="query-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
