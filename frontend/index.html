@@ -1,63 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>E-Commerce Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+  <style>
+    /* Force the container background */
+    #schema-map { background-color: #0f172a !important; }
+
+    /* Force all text inside ER boxes to be high-contrast */
+    [id^="mermaid-"] .er.attributeBoxText { 
+        fill: #ffffff !important; 
+        font-size: 14px !important; 
+        font-weight: 500 !important; 
+    }
+    [id^="mermaid-"] .er.entityLabel { 
+        fill: #ffffff !important; 
+        font-weight: bold !important; 
+    }
+    [id^="mermaid-"] .er.typeLabel { 
+        fill: #cbd5e1 !important; /* Soft light blue/grey for data types */
+    }
+    [id^="mermaid-"] .er.keyLabel { 
+        fill: #38bdf8 !important; /* Neon blue for PK/FK */
+        font-weight: bold !important;
+    }
+    
+    /* FIX: Force attribute box row backgrounds to be dark to avoid washing out white text */
+    [id^="mermaid-"] .er.attributeBoxEven {
+        fill: #1e293b !important;
+        stroke: #334155 !important;
+    }
+    [id^="mermaid-"] .er.attributeBoxOdd {
+        fill: #0f172a !important;
+        stroke: #334155 !important;
+    }
+  </style>
 </head>
+
 <body class="bg-gray-100 text-gray-800 font-sans">
 
   <!-- ===================== AUTHENTICATION SECTION ===================== -->
   <div id="login-section" class="flex flex-col items-center justify-center min-h-screen">
-    
+
     <!-- LOGIN FORM -->
     <div id="login-form" class="bg-white p-8 rounded shadow-md w-full max-w-sm">
       <h2 class="text-2xl font-bold mb-6 text-gray-800 text-center">Login</h2>
-      <div id="login-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
+      <div id="login-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+      </div>
       <div class="mb-4">
         <label class="block text-gray-700 text-sm font-bold mb-2">Username</label>
-        <input id="login-username" type="text" placeholder="Enter username" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="login-username" type="text" placeholder="Enter username"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div class="mb-6">
         <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-        <input id="login-password" type="password" placeholder="Enter password" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" onkeydown="if(event.key === 'Enter') login()">
+        <input id="login-password" type="password" placeholder="Enter password"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          onkeydown="if(event.key === 'Enter') login()">
       </div>
-      <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
+      <button onclick="login()"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
         Sign In
       </button>
       <div class="text-sm text-center text-gray-600 space-y-2">
-        <p><button onclick="showAuthForm('forgot-password-form')" class="hover:underline text-indigo-600">Forgot Password?</button></p>
-        <p>Don't have an account? <button onclick="showAuthForm('register-form')" class="hover:underline text-indigo-600">Create an Account</button></p>
+        <p><button onclick="showAuthForm('forgot-password-form')" class="hover:underline text-indigo-600">Forgot
+            Password?</button></p>
+        <p>Don't have an account? <button onclick="showAuthForm('register-form')"
+            class="hover:underline text-indigo-600">Create an Account</button></p>
       </div>
     </div>
 
     <!-- REGISTER FORM -->
     <div id="register-form" class="bg-white p-8 rounded shadow-md w-full max-w-sm hidden">
       <h2 class="text-2xl font-bold mb-6 text-gray-800 text-center">Register</h2>
-      <div id="register-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
+      <div id="register-error"
+        class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
       <div class="mb-4">
         <label class="block text-gray-700 text-sm font-bold mb-2">Name</label>
-        <input id="reg-name" type="text" placeholder="Full Name" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="reg-name" type="text" placeholder="Full Name"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div class="mb-4">
         <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
-        <input id="reg-email" type="email" placeholder="Email Address" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="reg-email" type="email" placeholder="Email Address"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div class="mb-4">
         <label class="block text-gray-700 text-sm font-bold mb-2">Username</label>
-        <input id="reg-username" type="text" placeholder="Choose a username" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="reg-username" type="text" placeholder="Choose a username"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
       <div class="mb-6">
         <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-        <input id="reg-password" type="password" placeholder="Create a password" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="reg-password" type="password" placeholder="Create a password"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
-      <button onclick="register()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-green-400 mb-4">
+      <button onclick="register()"
+        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-green-400 mb-4">
         Sign Up
       </button>
       <div class="text-sm text-center text-gray-600">
-        <p>Already have an account? <button onclick="showAuthForm('login-form')" class="hover:underline text-indigo-600">Login</button></p>
+        <p>Already have an account? <button onclick="showAuthForm('login-form')"
+            class="hover:underline text-indigo-600">Login</button></p>
       </div>
     </div>
 
@@ -68,184 +118,231 @@
       <div id="forgot-message" class="hidden mb-4 text-sm px-3 py-2 rounded"></div>
       <div class="mb-6">
         <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
-        <input id="forgot-email" type="email" placeholder="Email Address" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="forgot-email" type="email" placeholder="Email Address"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
-      <button onclick="forgotPassword()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
+      <button onclick="forgotPassword()"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
         Send Reset Link
       </button>
       <div class="text-sm text-center text-gray-600">
-        <p><button onclick="showAuthForm('login-form')" class="hover:underline text-indigo-600">Back to Login</button></p>
+        <p><button onclick="showAuthForm('login-form')" class="hover:underline text-indigo-600">Back to Login</button>
+        </p>
       </div>
     </div>
 
     <!-- RESET PASSWORD FORM -->
     <div id="reset-password-form" class="bg-white p-8 rounded shadow-md w-full max-w-sm hidden">
       <h2 class="text-xl font-bold mb-4 text-gray-800 text-center">Set New Password</h2>
-      <div id="reset-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
-      <div id="reset-success" class="hidden mb-4 text-sm text-green-600 bg-green-50 border border-green-200 rounded px-3 py-2"></div>
+      <div id="reset-error" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+      </div>
+      <div id="reset-success"
+        class="hidden mb-4 text-sm text-green-600 bg-green-50 border border-green-200 rounded px-3 py-2"></div>
       <div class="mb-6">
         <label class="block text-gray-700 text-sm font-bold mb-2">New Password</label>
-        <input id="reset-password" type="password" placeholder="Enter new password" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <input id="reset-password" type="password" placeholder="Enter new password"
+          class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
       </div>
-      <button onclick="resetPassword()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
+      <button onclick="resetPassword()"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-4">
         Update Password
       </button>
       <div class="text-sm text-center text-gray-600">
-        <p><button onclick="showAuthForm('login-form')" class="hover:underline text-indigo-600">Back to Login</button></p>
+        <p><button onclick="showAuthForm('login-form')" class="hover:underline text-indigo-600">Back to Login</button>
+        </p>
       </div>
     </div>
   </div>
 
   <div id="app-container" class="hidden">
-  <!-- Nav -->
-  <nav class="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between shadow">
-    <h1 class="text-xl font-bold tracking-wide">E-Commerce DBMS</h1>
-    <div class="flex gap-4 text-sm font-medium">
-      <button id="nav-dashboard" onclick="showSection('dashboard')" class="hover:underline">Dashboard</button>
-      <button id="nav-products" onclick="showSection('products')"  class="hover:underline">Products</button>
-      <button id="nav-orders" onclick="showSection('orders')"    class="hover:underline">Orders</button>
-      <button id="nav-query" onclick="showSection('query')"     class="hover:underline">SQL Query</button>
-      <button id="nav-logout" onclick="logout()" class="hover:underline text-red-300 ml-4 border-l border-indigo-400 pl-4">Logout</button>
-    </div>
-  </nav>
-
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-
-    <!-- ===================== DASHBOARD ===================== -->
-    <section id="dashboard">
-
-      <!-- Summary Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4">
-          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Sales</p>
-          <p id="card-sales" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Orders</p>
-          <p id="card-orders" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-          <p class="text-xs text-gray-500 uppercase tracking-wide">Active Customers</p>
-          <p id="card-customers" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-          <p class="text-xs text-gray-500 uppercase tracking-wide">Total Products</p>
-          <p id="card-products" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
-        </div>
+    <!-- Nav -->
+    <nav class="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between shadow">
+      <h1 class="text-xl font-bold tracking-wide">E-Commerce DBMS</h1>
+      <div class="flex gap-4 text-sm font-medium">
+        <button id="nav-dashboard" onclick="showSection('dashboard')" class="hover:underline">Dashboard</button>
+        <button id="nav-products" onclick="showSection('products')" class="hover:underline">Products</button>
+        <button id="nav-orders" onclick="showSection('orders')" class="hover:underline">Orders</button>
+        <button id="nav-query" onclick="showSection('query')" class="hover:underline">SQL Query</button>
+        <button id="nav-schema-map" onclick="showSection('schema-map')"
+          class="hover:underline hidden text-teal-300">Schema Map</button>
+        <button id="nav-logout" onclick="logout()"
+          class="hover:underline text-red-300 ml-4 border-l border-indigo-400 pl-4">Logout</button>
       </div>
+    </nav>
 
-      <!-- Charts Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4">
-          <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Month</h2>
-          <canvas id="chartMonth" height="200"></canvas>
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+      <!-- ===================== DASHBOARD ===================== -->
+      <section id="dashboard">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Total Sales</p>
+            <p id="card-sales" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Total Orders</p>
+            <p id="card-orders" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Active Customers</p>
+            <p id="card-customers" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Total Products</p>
+            <p id="card-products" class="text-2xl font-bold text-indigo-600 mt-1">—</p>
+          </div>
         </div>
-        <div class="bg-white rounded-lg shadow p-4">
-          <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Category</h2>
-          <canvas id="chartCategory" height="200"></canvas>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Month</h2>
+            <canvas id="chartMonth" height="200"></canvas>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Category</h2>
+            <canvas id="chartCategory" height="200"></canvas>
+          </div>
         </div>
-      </div>
 
-      <!-- Top Products Table -->
-      <div class="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 class="text-sm font-semibold text-gray-600 mb-3">Top Selling Products</h2>
-        <table class="w-full text-sm text-left">
-          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>
-              <th class="px-3 py-2">Product</th>
-              <th class="px-3 py-2">Units Sold</th>
-              <th class="px-3 py-2">Revenue</th>
-            </tr>
-          </thead>
-          <tbody id="top-products-body" class="divide-y divide-gray-100"></tbody>
-        </table>
-      </div>
-
-      <!-- Customer History Table -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h2 class="text-sm font-semibold text-gray-600 mb-3">Customer Order History</h2>
-        <table class="w-full text-sm text-left">
-          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>
-              <th class="px-3 py-2">Customer</th>
-              <th class="px-3 py-2">Orders</th>
-              <th class="px-3 py-2">Total Spent</th>
-            </tr>
-          </thead>
-          <tbody id="customer-history-body" class="divide-y divide-gray-100"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===================== PRODUCTS ===================== -->
-    <section id="products" class="hidden">
-      <div class="bg-white rounded-lg shadow p-4">
-        <h2 class="text-sm font-semibold text-gray-600 mb-3">All Products</h2>
-        <table class="w-full text-sm text-left">
-          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>
-              <th class="px-3 py-2">ID</th>
-              <th class="px-3 py-2">Name</th>
-              <th class="px-3 py-2">Category</th>
-              <th class="px-3 py-2">Price</th>
-              <th class="px-3 py-2">Supplier</th>
-            </tr>
-          </thead>
-          <tbody id="products-body" class="divide-y divide-gray-100"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===================== ORDERS ===================== -->
-    <section id="orders" class="hidden">
-      <div class="bg-white rounded-lg shadow p-4">
-        <h2 class="text-sm font-semibold text-gray-600 mb-3">All Orders</h2>
-        <table class="w-full text-sm text-left">
-          <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>
-              <th class="px-3 py-2">Order ID</th>
-              <th class="px-3 py-2">Customer</th>
-              <th class="px-3 py-2">Date</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Items</th>
-              <th class="px-3 py-2">Total</th>
-            </tr>
-          </thead>
-          <tbody id="orders-body" class="divide-y divide-gray-100"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===================== SQL QUERY ===================== -->
-    <section id="query" class="hidden">
-      <div class="bg-white rounded-lg shadow p-4">
-        <h2 class="text-sm font-semibold text-gray-600 mb-3">SQL Query Runner</h2>
-        <p class="text-xs text-gray-400 mb-2">Run any queries except schema modifications (DDL).</p>
-        <textarea
-          id="query-input"
-          rows="5"
-          placeholder="SELECT * FROM products; OR UPDATE products SET price = 20 WHERE product_id = 1;"
-          class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3"
-        ></textarea>
-        <button
-          onclick="runQuery()"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded"
-        >Run Query</button>
-
-        <div id="query-error" class="hidden mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
-
-        <div id="query-results" class="hidden mt-4 overflow-x-auto">
-          <table class="w-full text-sm text-left border border-gray-200 rounded">
-            <thead id="query-thead" class="bg-gray-50 text-gray-500 uppercase text-xs"></thead>
-            <tbody id="query-tbody" class="divide-y divide-gray-100"></tbody>
+        <!-- Top Products Table -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">Top Selling Products</h2>
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th class="px-3 py-2">Product</th>
+                <th class="px-3 py-2">Units Sold</th>
+                <th class="px-3 py-2">Revenue</th>
+              </tr>
+            </thead>
+            <tbody id="top-products-body" class="divide-y divide-gray-100"></tbody>
           </table>
         </div>
-      </div>
-    </section>
 
-  </main>
+        <!-- Customer History Table -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">Customer Order History</h2>
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th class="px-3 py-2">Customer</th>
+                <th class="px-3 py-2">Orders</th>
+                <th class="px-3 py-2">Total Spent</th>
+              </tr>
+            </thead>
+            <tbody id="customer-history-body" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== PRODUCTS ===================== -->
+      <section id="products" class="hidden">
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">All Products</h2>
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th class="px-3 py-2">ID</th>
+                <th class="px-3 py-2">Name</th>
+                <th class="px-3 py-2">Category</th>
+                <th class="px-3 py-2">Price</th>
+                <th class="px-3 py-2">Supplier</th>
+              </tr>
+            </thead>
+            <tbody id="products-body" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== ORDERS ===================== -->
+      <section id="orders" class="hidden">
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">All Orders</h2>
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th class="px-3 py-2">Order ID</th>
+                <th class="px-3 py-2">Customer</th>
+                <th class="px-3 py-2">Date</th>
+                <th class="px-3 py-2">Status</th>
+                <th class="px-3 py-2">Items</th>
+                <th class="px-3 py-2">Total</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== SQL QUERY ===================== -->
+      <section id="query" class="hidden">
+        <div class="bg-white rounded-lg shadow p-4">
+          <h2 class="text-sm font-semibold text-gray-600 mb-3">SQL Query Runner</h2>
+          <p class="text-xs text-gray-400 mb-2">Run any queries except schema modifications (DDL).</p>
+          <textarea id="query-input" rows="5"
+            placeholder="SELECT * FROM products; OR UPDATE products SET price = 20 WHERE product_id = 1;"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3"></textarea>
+          <button onclick="runQuery()"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded">Run
+            Query</button>
+
+          <div id="query-error"
+            class="hidden mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
+
+          <div id="query-results" class="hidden mt-4 overflow-x-auto">
+            <table class="w-full text-sm text-left border border-gray-200 rounded">
+              <thead id="query-thead" class="bg-gray-50 text-gray-500 uppercase text-xs"></thead>
+              <tbody id="query-tbody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== SCHEMA MAP ===================== -->
+      <section id="schema-map"
+        class="hidden h-[800px] relative w-full bg-[#0f172a] rounded-lg shadow-xl overflow-hidden border border-gray-800">
+        <div
+          class="absolute top-4 left-4 z-10 flex flex-col bg-gray-900 border border-gray-700 rounded shadow-lg p-2 gap-2">
+          <button id="zoom-in" class="p-2 bg-gray-800 hover:bg-gray-700 text-teal-400 rounded focus:outline-none"
+            title="Zoom In">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+          </button>
+          <button id="zoom-out" class="p-2 bg-gray-800 hover:bg-gray-700 text-teal-400 rounded focus:outline-none"
+            title="Zoom Out">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+            </svg>
+          </button>
+          <button id="fit-canvas"
+            class="p-2 bg-gray-800 hover:bg-gray-700 text-teal-400 rounded focus:outline-none mt-2" title="Fit Canvas">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Mermaid Diagram -->
+        <div id="mynetwork" class="w-full h-full outline-none"></div>
+
+        <!-- Watermark/Logo styling -->
+        <div class="absolute bottom-4 right-4 z-10 pointer-events-none opacity-50 flex items-center gap-2">
+          <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z" fill="#00e5ff" />
+          </svg>
+          <span class="text-gray-500 text-sm font-bold tracking-widest uppercase">ecommerce_db</span>
+        </div>
+      </section>
+
+    </main>
   </div> <!-- End app-container -->
 
   <script src="script.js"></script>
 </body>
+
 </html>

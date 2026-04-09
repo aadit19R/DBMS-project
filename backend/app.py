@@ -348,6 +348,51 @@ def run_query():
 
 
 # -------------------------------------------------------------------
+# /schema-metadata  — get database structure for visualizer
+# -------------------------------------------------------------------
+@app.route("/schema-metadata")
+@jwt_required()
+def get_schema_metadata():
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
+    # Query tables and columns
+    columns_sql = """
+        SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE()
+        ORDER BY TABLE_NAME, ORDINAL_POSITION
+    """
+    columns = query_db(columns_sql)
+
+    # Query relationships (foreign keys)
+    fks_sql = """
+        SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL
+    """
+    fks = query_db(fks_sql)
+
+    # Group columns by table
+    tables = {}
+    for col in columns:
+        t_name = col["TABLE_NAME"]
+        if t_name not in tables:
+            tables[t_name] = {"columns": []}
+        tables[t_name]["columns"].append({
+            "name": col["COLUMN_NAME"],
+            "type": col["DATA_TYPE"],
+            "key": col["COLUMN_KEY"]
+        })
+
+    return jsonify({
+        "tables": tables,
+        "relationships": fks
+    })
+
+
+# -------------------------------------------------------------------
 # Views (created at startup if they don't exist)
 # -------------------------------------------------------------------
 def create_views():
