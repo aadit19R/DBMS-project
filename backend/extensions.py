@@ -1,13 +1,17 @@
+import os
 import mysql.connector
 from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 jwt = JWTManager()
 
 DB_CONFIG = {
-    "host":     "localhost",
-    "user":     "root",
-    "password": "Hellokitty@2", 
-    "database": "ecommerce_db"
+    "host":     os.getenv("DB_HOST", "localhost"),
+    "user":     os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", ""),
+    "database": os.getenv("DB_NAME", "ecommerce_db")
 }
 
 def get_connection():
