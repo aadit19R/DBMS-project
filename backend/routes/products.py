@@ -39,29 +39,50 @@ def adjust_stock(product_id):
     try:
         # Check if any warehouse_inventory row exists for this product
         cursor.execute(
-            "SELECT SUM(quantity_stored) AS total FROM warehouse_inventory WHERE product_id = %s",
+            "SELECT COUNT(*) AS cnt, IFNULL(SUM(quantity_stored), 0) AS total FROM warehouse_inventory WHERE product_id = %s",
             (product_id,)
         )
         row = cursor.fetchone()
-        current = row["total"] or 0
+        row_exists = row["cnt"] > 0
+        current    = row["total"] or 0
 
         if current + delta < 0:
             return jsonify({"error": "Stock cannot go below 0"}), 400
 
-        if current == 0 and delta > 0:
+        new_total = int(current) + delta  # guaranteed >= 0
+
+        if not row_exists:
             # No row exists yet: insert into warehouse 1 (default)
             cursor.execute(
                 "INSERT INTO warehouse_inventory (warehouse_id, product_id, quantity_stored) VALUES (1, %s, %s)",
-                (product_id, delta)
+                (product_id, new_total)
             )
         else:
-            # Spread the delta proportionally across all warehouses for this product
+            # Get warehouse 1's current quantity
             cursor.execute(
-                """UPDATE warehouse_inventory
-                   SET quantity_stored = GREATEST(0, quantity_stored + %s)
-                   WHERE product_id = %s""",
-                (delta, product_id)
+                "SELECT warehouse_id, quantity_stored FROM warehouse_inventory WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
+                (product_id,)
             )
+            first_wh   = cursor.fetchone()
+            new_w1_qty = int(first_wh["quantity_stored"]) + delta
+
+            if new_w1_qty < 0:
+                # Warehouse 1 alone can't absorb the full subtraction.
+                # Zero out all warehouses, then set warehouse 1 to the target total.
+                cursor.execute(
+                    "UPDATE warehouse_inventory SET quantity_stored = 0 WHERE product_id = %s",
+                    (product_id,)
+                )
+                cursor.execute(
+                    "UPDATE warehouse_inventory SET quantity_stored = %s WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
+                    (new_total, product_id)
+                )
+            else:
+                # Warehouse 1 can absorb the full delta, update only it.
+                cursor.execute(
+                    "UPDATE warehouse_inventory SET quantity_stored = %s WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
+                    (new_w1_qty, product_id)
+                )
         conn.commit()
         cursor.execute(
             "SELECT IFNULL(SUM(quantity_stored), 0) AS total_stock FROM warehouse_inventory WHERE product_id = %s",

@@ -53,11 +53,12 @@ def get_analytics():
     low_stock = query_db("""
         SELECT
             p.name,
-            wi.quantity_stored
+            SUM(wi.quantity_stored) AS quantity_stored
         FROM warehouse_inventory wi
         JOIN products p ON wi.product_id = p.product_id
-        WHERE wi.quantity_stored < 10
-        ORDER BY wi.quantity_stored ASC
+        GROUP BY p.product_id, p.name
+        HAVING SUM(wi.quantity_stored) < 10
+        ORDER BY quantity_stored ASC
     """)
 
     pending_orders = query_db("""
