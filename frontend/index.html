@@ -467,6 +467,34 @@
         <div class="bg-white rounded-lg shadow p-4">
           <h2 class="text-sm font-semibold text-gray-600 mb-3">SQL Query Runner</h2>
           <p class="text-xs text-gray-400 mb-2">Run any queries except schema modifications (DDL).</p>
+          <!-- Quick Query Macros -->
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button onclick="setQuery(`SELECT name, price, category FROM products ORDER BY price DESC LIMIT 5;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              🏷️ Top 5 Expensive
+            </button>
+            <button onclick="setQuery(`SELECT status, COUNT(*) AS order_count FROM orders GROUP BY status ORDER BY order_count DESC;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              📊 Orders by Status
+            </button>
+            <button onclick="setQuery(`SELECT p.name AS product_name, p.price, s.name AS supplier\nFROM products p\nINNER JOIN suppliers s ON p.supplier_id = s.supplier_id\nORDER BY p.name;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              🔗 Products &amp; Suppliers
+            </button>
+            <button onclick="setQuery(`SELECT order_id, customer_id, total_amount, order_date\nFROM orders\nWHERE status = 'pending' AND total_amount > 500\nORDER BY total_amount DESC;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              ⚠️ High-Value Pending
+            </button>
+            <button onclick="setQuery(`SELECT p.name, SUM(oi.quantity) AS total_sold\nFROM order_items oi\nINNER JOIN products p ON oi.product_id = p.product_id\nGROUP BY p.product_id, p.name\nORDER BY total_sold DESC\nLIMIT 5;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              🏆 Top 5 Best-Sellers
+            </button>
+            <button onclick="setQuery(`SELECT c.name, c.email, o.order_id, DATE_FORMAT(o.order_date, '%Y-%m-%d') AS order_date\nFROM customers c\nINNER JOIN orders o ON c.customer_id = o.customer_id\nWHERE o.status = 'shipped'\nORDER BY o.order_date DESC;`)"
+              class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-3 py-1.5 hover:bg-indigo-100 transition font-medium">
+              📦 Shipped Contacts
+            </button>
+          </div>
+
           <textarea id="query-input" rows="5"
             placeholder="SELECT * FROM products; OR UPDATE products SET price = 20 WHERE product_id = 1;"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3"></textarea>

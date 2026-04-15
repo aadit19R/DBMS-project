@@ -362,3 +362,11 @@ if (window.mermaid) {
 window.updateOrderStatus = updateOrderStatus;
 window.runQuery = runQuery;
 window.loadDashboard = loadDashboard;
+
+window.setQuery = function(sql) {
+  const ta = document.getElementById("query-input");
+  if (ta) {
+    ta.value = sql;
+    ta.focus();
+  }
+};
