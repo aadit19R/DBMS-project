@@ -50,23 +50,25 @@ def get_analytics():
         LIMIT 5
     """)
 
-    by_category = query_db("""
+    low_stock = query_db("""
         SELECT
-            p.category,
-            SUM(oi.quantity * oi.unit_price) AS revenue
-        FROM order_items oi
-        JOIN products p ON oi.product_id = p.product_id
-        GROUP BY p.category
-        ORDER BY revenue DESC
+            p.name,
+            wi.quantity_stored
+        FROM warehouse_inventory wi
+        JOIN products p ON wi.product_id = p.product_id
+        WHERE wi.quantity_stored < 10
+        ORDER BY wi.quantity_stored ASC
     """)
 
-    by_month = query_db("""
+    pending_orders = query_db("""
         SELECT
-            DATE_FORMAT(o.order_date, '%Y-%m') AS month,
-            SUM(o.total_amount)                AS revenue
-        FROM orders o
-        GROUP BY month
-        ORDER BY month
+            order_id,
+            DATE_FORMAT(order_date, '%Y-%m-%d') AS order_date,
+            total_amount
+        FROM orders
+        WHERE status = 'pending'
+        ORDER BY order_date ASC
+        LIMIT 5
     """)
 
     customer_history = query_db("""
@@ -78,13 +80,14 @@ def get_analytics():
         JOIN orders o ON c.customer_id = o.customer_id
         GROUP BY c.customer_id, c.name
         ORDER BY total_spent DESC
+        LIMIT 5
     """)
 
     return jsonify({
         "summary":          summary,
         "top_products":     top_products,
-        "by_category":      by_category,
-        "by_month":         by_month,
+        "low_stock":        low_stock,
+        "pending_orders":   pending_orders,
         "customer_history": customer_history
     })
 

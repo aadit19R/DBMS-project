@@ -1,8 +1,5 @@
 import { apiFetch, fmt, fmtMoney, buildTable } from './api.js';
 
-let chartMonth    = null;
-let chartCategory = null;
-
 export async function loadDashboard() {
   try {
     const data = await apiFetch("/analytics").then(r => r.json());
@@ -29,59 +26,104 @@ export async function loadDashboard() {
       </tr>`
     );
 
-    if (chartMonth) chartMonth.destroy();
-    chartMonth = new Chart(document.getElementById("chartMonth"), {
-      type: "bar",
-      data: {
-        labels:   data.by_month.map(r => r.month),
-        datasets: [{
-          label:           "Revenue ($)",
-          data:            data.by_month.map(r => parseFloat(r.revenue)),
-          backgroundColor: "#6366f1"
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales:  { y: { beginAtZero: true } }
-      }
-    });
+    buildTable("low-stock-body", data.low_stock, r => `
+      <tr class="hover:bg-red-50">
+        <td class="px-2 py-1 font-medium">${fmt(r.name)}</td>
+        <td class="px-2 py-1 text-right font-bold text-red-700">${fmt(r.quantity_stored)}</td>
+      </tr>`
+    );
 
-    if (chartCategory) chartCategory.destroy();
-    const colors = ["#6366f1","#10b981","#f59e0b","#ef4444","#3b82f6","#8b5cf6"];
-    chartCategory = new Chart(document.getElementById("chartCategory"), {
-      type: "doughnut",
-      data: {
-        labels:   data.by_category.map(r => r.category),
-        datasets: [{
-          data:            data.by_category.map(r => parseFloat(r.revenue)),
-          backgroundColor: colors
-        }]
-      },
-      options: {
-        plugins: { legend: { position: "bottom" } }
-      }
-    });
+    buildTable("pending-orders-body", data.pending_orders, r => `
+      <tr class="hover:bg-yellow-50">
+        <td class="px-2 py-1">${fmt(r.order_id)}</td>
+        <td class="px-2 py-1">${fmt(r.order_date)}</td>
+        <td class="px-2 py-1 text-right font-medium">${fmtMoney(r.total_amount)}</td>
+      </tr>`
+    );
   } catch (err) {
     console.error("Dashboard error:", err);
   }
 }
 
+let allAdminProducts = [];
+
 export async function loadProducts() {
   try {
-    const rows = await apiFetch("/products").then(r => r.json());
-    buildTable("products-body", rows, r => `
-      <tr class="hover:bg-gray-50">
-        <td class="px-3 py-2">${fmt(r.product_id)}</td>
-        <td class="px-3 py-2">${fmt(r.name)}</td>
-        <td class="px-3 py-2">${fmt(r.category)}</td>
-        <td class="px-3 py-2">${fmtMoney(r.price)}</td>
-        <td class="px-3 py-2">${fmt(r.supplier)}</td>
-      </tr>`
-    );
+    allAdminProducts = await apiFetch("/products").then(r => r.json());
+
+    // Populate category dropdown
+    const catSelect = document.getElementById("admin-product-category");
+    const categories = [...new Set(allAdminProducts.map(r => r.category))].sort();
+    catSelect.innerHTML = `<option value="">All Categories</option>` +
+      categories.map(c => `<option value="${c}">${c}</option>`).join("");
+
+    renderAdminProducts(allAdminProducts);
   } catch (err) {
     console.error("Products error:", err);
   }
 }
+
+function renderAdminProducts(rows) {
+  buildTable("products-body", rows, r => {
+    const stockClass = r.total_stock < 10 ? "font-bold text-red-600" : "text-gray-700";
+    return `
+      <tr class="hover:bg-gray-50" id="product-row-${r.product_id}">
+        <td class="px-3 py-2">${fmt(r.product_id)}</td>
+        <td class="px-3 py-2">${fmt(r.name)}</td>
+        <td class="px-3 py-2">${fmt(r.category)}</td>
+        <td class="px-3 py-2">${fmtMoney(r.price)}</td>
+        <td class="px-3 py-2 ${stockClass}" id="stock-cell-${r.product_id}">${fmt(r.total_stock)}</td>
+        <td class="px-3 py-2">
+          <div class="flex items-center gap-1">
+            <button onclick="updateStock(${r.product_id}, -1)" class="w-7 h-7 flex items-center justify-center bg-red-100 text-red-700 font-bold rounded hover:bg-red-200 transition text-base">−</button>
+            <input type="number" id="stock-input-${r.product_id}" value="1" min="1" class="w-14 border border-gray-300 rounded text-center text-sm py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+            <button onclick="updateStock(${r.product_id}, 1)" class="w-7 h-7 flex items-center justify-center bg-green-100 text-green-700 font-bold rounded hover:bg-green-200 transition text-base">+</button>
+          </div>
+        </td>
+        <td class="px-3 py-2">${fmt(r.supplier)}</td>
+      </tr>`;
+  });
+}
+
+window.filterAdminProducts = function() {
+  const query  = document.getElementById("admin-product-search").value.toLowerCase();
+  const cat    = document.getElementById("admin-product-category").value;
+  const filtered = allAdminProducts.filter(r =>
+    (!query || r.name.toLowerCase().includes(query)) &&
+    (!cat   || r.category === cat)
+  );
+  renderAdminProducts(filtered);
+};
+
+window.updateStock = async function(productId, direction) {
+  const inputEl = document.getElementById(`stock-input-${productId}`);
+  const amount  = Math.max(1, parseInt(inputEl.value) || 1);
+  const delta   = direction * amount;
+
+  try {
+    const res  = await apiFetch(`/products/${productId}/stock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delta })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    // Update local cache
+    const product = allAdminProducts.find(p => p.product_id === productId);
+    if (product) product.total_stock = data.total_stock;
+
+    // Update just the stock cell in-place (no full re-render flicker)
+    const cell = document.getElementById(`stock-cell-${productId}`);
+    if (cell) {
+      cell.textContent = data.total_stock;
+      cell.className = `px-3 py-2 ${ data.total_stock < 10 ? "font-bold text-red-600" : "text-gray-700" }`;
+    }
+  } catch (err) {
+    console.error("Stock update error:", err);
+    alert("Failed to update stock.");
+  }
+};
 
 export async function loadOrders() {
   try {

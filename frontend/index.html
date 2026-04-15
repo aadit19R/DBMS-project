@@ -202,7 +202,7 @@
             </div>
             
             <!-- KPIs -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <!-- AOV KPI -->
                 <div class="bg-gray-50 border border-gray-200 rounded p-4 flex flex-col items-center justify-center shadow-sm">
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Average Order Value</h3>
@@ -217,6 +217,13 @@
                     <div class="flex items-end gap-2">
                         <span id="kpi-orders" class="text-3xl font-extrabold text-indigo-700">0</span>
                         <span id="kpi-orders-trend" class="text-sm font-bold flex items-center hidden py-1 px-2 rounded-full"></span>
+                    </div>
+                </div>
+                <!-- Peak Sales KPI -->
+                <div class="bg-indigo-50 border border-indigo-200 rounded p-4 flex flex-col items-center justify-center shadow-sm text-center">
+                    <h3 class="text-xs font-bold text-indigo-500 uppercase tracking-wide mb-1">Peak Sales Day</h3>
+                    <div class="flex items-end gap-2 mt-2">
+                        <span id="kpi-peak-day" class="text-sm font-bold text-indigo-800">Apply a filter to calculate...</span>
                     </div>
                 </div>
             </div>
@@ -333,15 +340,34 @@
           </div>
         </div>
 
-        <!-- Charts Row -->
+        <!-- Urgent Action Cards (formerly Charts Row) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="bg-white rounded-lg shadow p-4">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Month</h2>
-            <canvas id="chartMonth" height="200"></canvas>
+          <!-- Low Stock -->
+          <div class="bg-red-50 rounded-lg border border-red-200 shadow-sm p-4">
+            <h2 class="text-sm font-bold text-red-800 mb-3 flex items-center gap-2">⚠️ Low Stock Alerts</h2>
+            <table class="w-full text-sm text-left text-red-900">
+              <thead class="uppercase text-xs font-semibold">
+                <tr>
+                  <th class="px-2 py-1">Product</th>
+                  <th class="px-2 py-1 text-right">Quantity</th>
+                </tr>
+              </thead>
+              <tbody id="low-stock-body" class="divide-y divide-red-200"></tbody>
+            </table>
           </div>
-          <div class="bg-white rounded-lg shadow p-4">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3">Revenue by Category</h2>
-            <canvas id="chartCategory" height="200"></canvas>
+          <!-- Pending Orders -->
+          <div class="bg-yellow-50 rounded-lg border border-yellow-200 shadow-sm p-4">
+            <h2 class="text-sm font-bold text-yellow-800 mb-3 flex items-center gap-2">⏳ Unprocessed Orders</h2>
+            <table class="w-full text-sm text-left text-yellow-900">
+              <thead class="uppercase text-xs font-semibold">
+                <tr>
+                  <th class="px-2 py-1">Order ID</th>
+                  <th class="px-2 py-1">Date</th>
+                  <th class="px-2 py-1 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="pending-orders-body" class="divide-y divide-yellow-200"></tbody>
+            </table>
           </div>
         </div>
 
@@ -379,7 +405,25 @@
       <!-- ===================== PRODUCTS ===================== -->
       <section id="products" class="hidden">
         <div class="bg-white rounded-lg shadow p-4">
-          <h2 class="text-sm font-semibold text-gray-600 mb-3">All Products</h2>
+          <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+            <h2 class="text-sm font-semibold text-gray-600">All Products</h2>
+            <div class="flex gap-3">
+              <input
+                type="text"
+                id="admin-product-search"
+                placeholder="Search by name..."
+                oninput="filterAdminProducts()"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+              <select
+                id="admin-product-category"
+                onchange="filterAdminProducts()"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
           <table class="w-full text-sm text-left">
             <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
@@ -387,6 +431,8 @@
                 <th class="px-3 py-2">Name</th>
                 <th class="px-3 py-2">Category</th>
                 <th class="px-3 py-2">Price</th>
+                <th class="px-3 py-2">Stock</th>
+                <th class="px-3 py-2">Adjust Stock</th>
                 <th class="px-3 py-2">Supplier</th>
               </tr>
             </thead>

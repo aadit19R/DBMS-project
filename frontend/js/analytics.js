@@ -119,6 +119,17 @@ function renderCategoryChart(data) {
 }
 
 function renderDaysChart(data) {
+    const peakEl = document.getElementById("kpi-peak-day");
+    if (data && data.length > 0) {
+        let maxDay = data[0];
+        for (let d of data) {
+            if (d.order_count > maxDay.order_count) maxDay = d;
+        }
+        peakEl.textContent = `${maxDay.day_name}s`;
+    } else {
+        peakEl.textContent = "No data";
+    }
+
     if (daysChartInstance) daysChartInstance.destroy();
     daysChartInstance = new Chart(document.getElementById("daysChart"), {
         type: 'bar',
