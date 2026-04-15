@@ -101,6 +101,9 @@ export async function loadOrders() {
         </td>
         <td class="px-3 py-2">${fmt(r.item_count)}</td>
         <td class="px-3 py-2">${fmtMoney(r.total_amount)}</td>
+        <td class="px-3 py-2">
+            <button onclick="openAdminEditorModal(${r.order_id})" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs border border-indigo-600 rounded px-2 py-1">Edit</button>
+        </td>
       </tr>`
     );
   } catch (err) {
@@ -127,6 +130,61 @@ export async function updateOrderStatus(orderId, newStatus) {
         alert("Error updating order status: " + err.message);
         // Revert UI automatically by reloading orders
         loadOrders();
+    }
+}
+
+export async function openAdminEditorModal(orderId) {
+    try {
+        const items = await apiFetch(`/admin/orders/${orderId}/items`).then(r => r.json());
+        if (items.error) throw new Error(items.error);
+
+        document.getElementById("admin-editor-title").textContent = `Edit Order #${orderId}`;
+        const tbody = document.getElementById("admin-editor-items");
+        
+        tbody.innerHTML = items.map(item => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">${fmt(item.name)}</td>
+                <td class="px-3 py-2">${fmt(item.quantity)}</td>
+                <td class="px-3 py-2">${fmtMoney(item.unit_price)}</td>
+                <td class="px-3 py-2 text-right">
+                    <button onclick="removeOrderItem(${orderId}, ${item.product_id})" class="text-red-600 hover:text-red-900 border border-red-600 rounded px-2 py-1 text-xs">Remove</button>
+                </td>
+            </tr>
+        `).join("");
+
+        document.getElementById("admin-editor-overlay").classList.remove("hidden");
+        document.getElementById("admin-editor-modal").classList.remove("hidden");
+    } catch (err) {
+        alert("Error fetching order items: " + err.message);
+    }
+}
+
+export function closeAdminEditorModal() {
+    document.getElementById("admin-editor-overlay").classList.add("hidden");
+    document.getElementById("admin-editor-modal").classList.add("hidden");
+}
+
+export async function removeOrderItem(orderId, productId) {
+    if (!confirm("Are you sure you want to remove this item?")) return;
+    try {
+        const res = await apiFetch(`/admin/orders/${orderId}/items/${productId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "remove" })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to remove item");
+
+        alert("Success: " + data.message);
+        
+        // Refresh items or close modal
+        openAdminEditorModal(orderId);
+        
+        // Refresh the underlying orders table
+        loadOrders();
+        loadDashboard(); // Refresh metrics since order total changed
+    } catch (err) {
+        alert("Error removing item: " + err.message);
     }
 }
 

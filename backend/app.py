@@ -6,6 +6,7 @@ from routes.auth import auth_bp
 from routes.products import products_bp
 from routes.orders import orders_bp
 from routes.admin import admin_bp
+from routes.analytics import analytics_bp
 
 def create_views():
     conn = get_connection()
@@ -51,6 +52,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(products_bp)
 app.register_blueprint(orders_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(analytics_bp)
 
 if __name__ == "__main__":
     create_views()

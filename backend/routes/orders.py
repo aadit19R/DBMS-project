@@ -162,3 +162,107 @@ def get_my_orders():
             o["items"] = items_by_order.get(o["order_id"], [])
 
     return jsonify(orders)
+
+@orders_bp.route("/admin/orders/<int:order_id>/items")
+@jwt_required()
+def get_admin_order_items(order_id):
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
+    sql = """
+        SELECT oi.product_id, p.name, oi.quantity, oi.unit_price 
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        WHERE oi.order_id = %s
+    """
+    items = query_db(sql, (order_id,))
+    return jsonify(items)
+
+@orders_bp.route("/admin/orders/<int:order_id>/items/<int:product_id>", methods=["PUT"])
+@jwt_required()
+def edit_admin_order_item(order_id, product_id):
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json() or {}
+    action = data.get("action")
+    if action not in ["remove", "update"]:
+        return jsonify({"error": "Invalid action"}), 400
+
+    conn = get_connection()
+    # Fetch as dictionary so we can reference 'quantity' and 'unit_price' by key
+    cursor = conn.cursor(dictionary=True)
+    try:
+        conn.start_transaction()
+
+        cursor.execute(
+            "SELECT quantity, unit_price FROM order_items WHERE order_id = %s AND product_id = %s FOR UPDATE",
+            (order_id, product_id)
+        )
+        item = cursor.fetchone()
+        if not item:
+            raise ValueError("Order item not found")
+
+        current_qty = int(item['quantity'])
+        unit_price = float(item['unit_price'])
+
+        if action == "remove":
+            diff = current_qty
+            cursor.execute("DELETE FROM order_items WHERE order_id = %s AND product_id = %s", (order_id, product_id))
+        else: # update
+            new_qty = int(data.get("new_quantity", 0))
+            if new_qty < 0:
+                raise ValueError("Quantity cannot be negative")
+            if new_qty > current_qty:
+                raise ValueError("Increasing quantity is not supported here.")
+            
+            diff = current_qty - new_qty
+            if diff == 0:
+                # Nothing to do, but let's just return success
+                conn.rollback()
+                return jsonify({"message": "No changes made"}), 200
+                
+            if new_qty == 0:
+                cursor.execute("DELETE FROM order_items WHERE order_id = %s AND product_id = %s", (order_id, product_id))
+            else:
+                cursor.execute(
+                    "UPDATE order_items SET quantity = %s WHERE order_id = %s AND product_id = %s",
+                    (new_qty, order_id, product_id)
+                )
+
+        if diff > 0:
+            # Restock warehouse
+            cursor.execute(
+                "UPDATE warehouse_inventory SET quantity_stored = quantity_stored + %s WHERE product_id = %s",
+                (diff, product_id)
+            )
+
+            # Reduce order total amount
+            amount_diff = diff * unit_price
+            cursor.execute(
+                "UPDATE orders SET total_amount = total_amount - %s WHERE order_id = %s",
+                (amount_diff, order_id)
+            )
+
+        conn.commit()
+        return jsonify({"message": "Order item updated successfully"}), 200
+
+    except ValueError as ve:
+        conn.rollback()
+        return jsonify({"error": str(ve)}), 400
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"error": "Database error: " + str(e)}), 500
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        # Read unread results if any
+        try:
+            cursor.fetchall()
+        except:
+            pass
+        cursor.close()
+        conn.close()

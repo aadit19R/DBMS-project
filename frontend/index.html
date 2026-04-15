@@ -162,6 +162,7 @@
         <!-- Admin Nav -->
         <div id="nav-admin" class="hidden flex gap-4">
             <button id="nav-dashboard" onclick="showSection('dashboard')" class="hover:underline">Dashboard</button>
+            <button id="nav-analytics-dashboard" onclick="showSection('analytics-dashboard')" class="hover:underline text-yellow-300">Advanced Analytics</button>
             <button id="nav-products" onclick="showSection('products')" class="hover:underline">Admin Products</button>
             <button id="nav-orders" onclick="showSection('orders')" class="hover:underline">All Orders</button>
             <button id="nav-query" onclick="showSection('query')" class="hover:underline">SQL Query</button>
@@ -182,6 +183,39 @@
 
     <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
       
+      <!-- ===================== ADVANCED ANALYTICS ===================== -->
+      <section id="analytics-dashboard" class="hidden">
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Advanced Analytics</h2>
+            <div class="flex gap-4 items-end mb-6 bg-gray-50 p-4 rounded border border-gray-200">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Start Date</label>
+                    <input type="date" id="filter-start" class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase mb-1">End Date</label>
+                    <input type="date" id="filter-end" class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <button id="btn-apply-filters" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    Apply Filters
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Revenue Chart -->
+                <div class="border border-gray-200 rounded p-4">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-3 text-center">Revenue Over Time</h3>
+                    <canvas id="revenueChart" height="250"></canvas>
+                </div>
+                <!-- Category Chart -->
+                <div class="border border-gray-200 rounded p-4">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-3 text-center">Revenue by Category</h3>
+                    <canvas id="categoryChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+      </section>
+
       <!-- ===================== STOREFRONT ===================== -->
       <section id="storefront" class="hidden">
         <div class="flex justify-between items-center mb-6">
@@ -319,6 +353,7 @@
                 <th class="px-3 py-2">Status</th>
                 <th class="px-3 py-2">Items</th>
                 <th class="px-3 py-2">Total</th>
+                <th class="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody id="orders-body" class="divide-y divide-gray-100"></tbody>
@@ -412,6 +447,30 @@
         <button onclick="checkout()" id="checkout-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 opacity-50 cursor-not-allowed">
             Place Order
         </button>
+    </div>
+  </div>
+
+  <!-- ===================== ADMIN ORDER ITEMS EDITOR MODAL ===================== -->
+  <div id="admin-editor-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40" onclick="closeAdminEditorModal()"></div>
+  <div id="admin-editor-modal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl w-full max-w-3xl hidden z-50 flex flex-col max-h-[90vh]">
+    <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+        <h2 id="admin-editor-title" class="text-lg font-bold text-gray-800">Edit Order #—</h2>
+        <button onclick="closeAdminEditorModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th class="px-3 py-2">Product</th>
+                <th class="px-3 py-2">Quantity</th>
+                <th class="px-3 py-2">Unit Price</th>
+                <th class="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-editor-items" class="divide-y divide-gray-100"></tbody>
+        </table>
     </div>
   </div>
 
