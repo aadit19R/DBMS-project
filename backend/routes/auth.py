@@ -16,6 +16,7 @@ def login():
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
 
+    # Retrieves user credentials and profile details for authentication verification.
     sql = "SELECT user_id, username, password_hash, role, customer_id FROM users WHERE username = %s"
     users = query_db(sql, (username,))
 
@@ -53,14 +54,17 @@ def register():
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # Checks if the provided username or email is already taken before registering.
         cursor.execute("SELECT user_id FROM users WHERE username = %s OR email = %s", (username, email))
         if cursor.fetchone():
             return jsonify({"error": "Username or email already exists"}), 400
 
+        # Creates a new customer profile record.
         cursor.execute("INSERT INTO customers (name, email) VALUES (%s, %s)", (name, email))
         customer_id = cursor.lastrowid
         
         password_hash = generate_password_hash(password)
+        # Creates the associated user account with a hashed password and link to the customer record.
         cursor.execute(
             "INSERT INTO users (username, email, password_hash, role, customer_id) VALUES (%s, %s, %s, 'user', %s)",
             (username, email, password_hash, customer_id)
@@ -81,6 +85,7 @@ def forgot_password():
     if not email:
         return jsonify({"error": "Missing email"}), 400
     
+    # Verifies that the email exists before initiating the password reset flow.
     users = query_db("SELECT user_id FROM users WHERE email = %s", (email,))
     if not users:
         return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
@@ -108,6 +113,7 @@ def reset_password():
         return jsonify({"error": "Invalid or expired token"}), 400
         
     password_hash = generate_password_hash(new_password)
+    # Overwrites the old password hash with the new one for the verified email.
     query_db("UPDATE users SET password_hash = %s WHERE email = %s", (password_hash, email))
     
     return jsonify({"message": "Password updated successfully"}), 200

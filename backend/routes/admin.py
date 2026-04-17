@@ -13,6 +13,7 @@ def get_customers():
     if claims.get("role") != "admin":
         return jsonify({"error": "Admin access required"}), 403
 
+    # retrieves a basic list of all customers. Works in Workbench as-is.
     sql = """
         SELECT customer_id, name, email, phone, address
         FROM customers
@@ -28,16 +29,17 @@ def get_analytics():
     if claims.get("role") != "admin":
         return jsonify({"error": "Admin access required"}), 403
 
+
+    # generates a high-level analytics summary using independent subqueries. Works in Workbench as-is.
     summary = query_db("""
-        SELECT
-            COUNT(DISTINCT o.order_id)        AS total_orders,
-            SUM(o.total_amount)               AS total_sales,
-            COUNT(DISTINCT o.customer_id)     AS active_customers,
-            COUNT(DISTINCT p.product_id)      AS total_products
-        FROM orders o
-        CROSS JOIN products p
+        SELECT 
+            (SELECT COUNT(*) FROM orders) AS total_orders,
+            (SELECT SUM(total_amount) FROM orders) AS total_sales,
+            (SELECT COUNT(DISTINCT customer_id) FROM orders) AS active_customers,
+            (SELECT COUNT(*) FROM products) AS total_products
     """)[0]
 
+    # leaderboard of top 5 best-selling products by quantity and revenue. Works in Workbench as-is.
     top_products = query_db("""
         SELECT
             p.name,
@@ -50,17 +52,21 @@ def get_analytics():
         LIMIT 5
     """)
 
+    # inventory alert for products with less than 10 units across all warehouses. Works in Workbench as-is.
     low_stock = query_db("""
         SELECT
             p.name,
             SUM(wi.quantity_stored) AS quantity_stored
         FROM warehouse_inventory wi
-        JOIN products p ON wi.product_id = p.product_id
+        JOIN products p 
+        ON wi.product_id = p.product_id
         GROUP BY p.product_id, p.name
-        HAVING SUM(wi.quantity_stored) < 10
+        HAVING 
+        SUM(wi.quantity_stored) < 10
         ORDER BY quantity_stored ASC
     """)
 
+    # priority queue of the 5 oldest pending orders. Works in Workbench as-is.
     pending_orders = query_db("""
         SELECT
             order_id,
@@ -72,6 +78,7 @@ def get_analytics():
         LIMIT 5
     """)
 
+    # top 5 VIP customers based on lifetime spend and order frequency. Works in Workbench as-is.
     customer_history = query_db("""
         SELECT
             c.name,
@@ -128,6 +135,8 @@ def get_schema_metadata():
     if claims.get("role") != "admin":
         return jsonify({"error": "Admin access required"}), 403
 
+    # introspection query to discover all tables and columns in the database. Works in Workbench as-is.
+    # used for SQL runner in website Part 1
     columns_sql = """
         SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY 
         FROM information_schema.COLUMNS 
@@ -136,6 +145,8 @@ def get_schema_metadata():
     """
     columns = query_db(columns_sql)
 
+    # introspection query to find foreign key relationships between tables. Works in Workbench as-is.
+    # used for SQL runner in website Part 2
     fks_sql = """
         SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
         FROM information_schema.KEY_COLUMN_USAGE

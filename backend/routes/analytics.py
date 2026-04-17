@@ -15,6 +15,7 @@ def analytics_revenue():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
+    # foundation for monthly revenue trend, doesnt work in MySQL workbench by itself since Group By is not present, although it get appended later on. (line 30)
     sql = """
         SELECT DATE_FORMAT(order_date, '%Y-%m') AS time_period, SUM(total_amount) AS revenue, AVG(total_amount) AS aov
         FROM orders 
@@ -42,6 +43,7 @@ def analytics_categories():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
+    # revenue breakdown by category, doesn't work in Workbench alone without the Group By added on line 58.
     sql = """
         SELECT p.category, SUM(oi.quantity * oi.unit_price) AS revenue
         FROM orders o
@@ -69,6 +71,7 @@ def analytics_kpis():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     
+    # Core KPI calculation (Average Order Value and Order Count). Works in Workbench as-is.
     current_sql = "SELECT AVG(total_amount) as aov, COUNT(*) as orders FROM orders WHERE status != 'cancelled'"
     
     if not (start_date and end_date):
@@ -93,6 +96,7 @@ def analytics_kpis():
     prev_end_str = prev_end.strftime("%Y-%m-%d")
     
     # Needs a new query without the date filter appended previously
+    # Comparison KPI calculation for trend analysis. Works in Workbench as-is.
     base_sql = "SELECT AVG(total_amount) as aov, COUNT(*) as orders FROM orders WHERE status != 'cancelled' AND order_date BETWEEN %s AND %s"
     res_prev = query_db(base_sql, (prev_start_str, prev_end_str + " 23:59:59"))[0]
     
@@ -124,6 +128,7 @@ def analytics_velocity():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
+    # Calculates inventory velocity (sales vs stock). Requires 'GROUP BY p.product_id' (added on line 147).
     sql = """
         SELECT p.name, 
                CAST(SUM(oi.quantity) AS CHAR) as sold, 
@@ -163,6 +168,7 @@ def analytics_days():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
+    # Sales volume breakdown by day of the week. Requires 'GROUP BY day_name' (added on line 180).
     sql = """
         SELECT DAYNAME(order_date) as day_name, COUNT(*) as order_count
         FROM orders

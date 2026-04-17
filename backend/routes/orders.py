@@ -12,6 +12,8 @@ def get_orders():
     role = claims.get("role")
     customer_id = claims.get("customer_id")
 
+
+    #foundation for order history, doesn't work in Workbench alone since Group By is not present, although it get appended later on. (line 27)
     sql = """
         SELECT
             o.order_id,
@@ -51,6 +53,7 @@ def update_order_status(order_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # Updates the status of an existing order to one of: pending, shipped, delivered, or cancelled.
         cursor.execute("UPDATE orders SET status = %s WHERE order_id = %s", (new_status, order_id))
         conn.commit()
         if cursor.rowcount == 0:
@@ -82,6 +85,7 @@ def checkout():
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # Creates the main order record with a 'pending' status.
         cursor.execute(
             "INSERT INTO orders (customer_id, order_date, status, total_amount) VALUES (%s, NOW(), 'pending', %s)",
             (customer_id, total_amount)
@@ -92,6 +96,7 @@ def checkout():
             product_id = item["product_id"]
             quantity = int(item["quantity"])
             
+            # Atomic stock deduction. Only succeeds if enough inventory is available.
             update_sql = """
                 UPDATE warehouse_inventory 
                 SET quantity_stored = quantity_stored - %s 
@@ -103,6 +108,7 @@ def checkout():
                 product_name = item.get("name", f"ID {product_id}")
                 raise ValueError(f"Insufficient stock for product: {product_name}")
             
+            # Records each individual product and quantity purchased for this order.
             cursor.execute(
                 "INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (%s, %s, %s, %s)",
                 (order_id, product_id, quantity, item["unit_price"])
@@ -133,6 +139,7 @@ def get_my_orders():
     if not customer_id:
         return jsonify({"error": "No customer associated with this user"}), 400
 
+    # Fetches the basic order list for the currently logged-in customer.
     orders = query_db(
         "SELECT order_id, order_date, status, total_amount FROM orders WHERE customer_id = %s ORDER BY order_date DESC",
         (customer_id,)
@@ -146,6 +153,7 @@ def get_my_orders():
     if orders:
         order_ids = [str(o["order_id"]) for o in orders]
         format_strings = ','.join(['%s'] * len(order_ids))
+        # Aggregates itemized details for the orders fetched above, including product names.
         items = query_db(
             f"SELECT oi.order_id, p.name AS product_name, oi.quantity, oi.unit_price FROM order_items oi JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id IN ({format_strings})",
             tuple(order_ids)
@@ -170,6 +178,7 @@ def get_admin_order_items(order_id):
     if claims.get("role") != "admin":
         return jsonify({"error": "Admin access required"}), 403
 
+    # Admin view: Lists every product, quantity, and price for a specific order ID.
     sql = """
         SELECT oi.product_id, p.name, oi.quantity, oi.unit_price 
         FROM order_items oi
@@ -197,6 +206,7 @@ def edit_admin_order_item(order_id, product_id):
     try:
         conn.start_transaction()
 
+        # Transactional lock: Retrieves original item quantity and price before modification.
         cursor.execute(
             "SELECT quantity, unit_price FROM order_items WHERE order_id = %s AND product_id = %s FOR UPDATE",
             (order_id, product_id)
@@ -210,6 +220,7 @@ def edit_admin_order_item(order_id, product_id):
 
         if action == "remove":
             diff = current_qty
+            # Removes the product entry from the order items list.
             cursor.execute("DELETE FROM order_items WHERE order_id = %s AND product_id = %s", (order_id, product_id))
         else: # update
             new_qty = int(data.get("new_quantity", 0))
@@ -225,15 +236,17 @@ def edit_admin_order_item(order_id, product_id):
                 return jsonify({"message": "No changes made"}), 200
                 
             if new_qty == 0:
+                # Removes the product entry from the order items list.
                 cursor.execute("DELETE FROM order_items WHERE order_id = %s AND product_id = %s", (order_id, product_id))
             else:
+                # Synchronizes the new line-item quantity in the database.
                 cursor.execute(
                     "UPDATE order_items SET quantity = %s WHERE order_id = %s AND product_id = %s",
                     (new_qty, order_id, product_id)
                 )
 
         if diff > 0:
-            # Restock warehouse
+            # Re-stocks the warehouse when items are removed or quantity is reduced in an order.
             cursor.execute(
                 "UPDATE warehouse_inventory SET quantity_stored = quantity_stored + %s WHERE product_id = %s",
                 (diff, product_id)
@@ -241,6 +254,7 @@ def edit_admin_order_item(order_id, product_id):
 
             # Reduce order total amount
             amount_diff = diff * unit_price
+            # Adjusts the final order total to reflect the removed or reduced items.
             cursor.execute(
                 "UPDATE orders SET total_amount = total_amount - %s WHERE order_id = %s",
                 (amount_diff, order_id)

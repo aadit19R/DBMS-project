@@ -12,6 +12,7 @@ def create_views():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Creates a virtual view for sales reporting, aggregating total units sold and revenue per product.
     cursor.execute("""
         CREATE OR REPLACE VIEW sales_summary AS
         SELECT
@@ -24,6 +25,7 @@ def create_views():
         GROUP BY p.product_id, p.name, p.category
     """)
 
+    # Creates a virtual view for inventory management, mapping products to their specific warehouse locations.
     cursor.execute("""
         CREATE OR REPLACE VIEW inventory_view AS
         SELECT

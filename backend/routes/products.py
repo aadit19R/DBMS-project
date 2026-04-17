@@ -7,6 +7,7 @@ products_bp = Blueprint('products', __name__)
 @products_bp.route("/products")
 @jwt_required()
 def get_products():
+    # Fetches the master product catalog, joining with suppliers and summing inventory across all warehouses.
     sql = """
         SELECT
             p.product_id,
@@ -38,6 +39,7 @@ def adjust_stock(product_id):
     cursor = conn.cursor(dictionary=True)
     try:
         # Check if any warehouse_inventory row exists for this product
+        # Checks the current existence and total quantity of stock for a specific product.
         cursor.execute(
             "SELECT COUNT(*) AS cnt, IFNULL(SUM(quantity_stored), 0) AS total FROM warehouse_inventory WHERE product_id = %s",
             (product_id,)
@@ -53,12 +55,14 @@ def adjust_stock(product_id):
 
         if not row_exists:
             # No row exists yet: insert into warehouse 1 (default)
+            # Initializes the first inventory record for a product in the primary warehouse.
             cursor.execute(
                 "INSERT INTO warehouse_inventory (warehouse_id, product_id, quantity_stored) VALUES (1, %s, %s)",
                 (product_id, new_total)
             )
         else:
             # Get warehouse 1's current quantity
+            # Retrieves the inventory level of the first assigned warehouse for modification.
             cursor.execute(
                 "SELECT warehouse_id, quantity_stored FROM warehouse_inventory WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
                 (product_id,)
@@ -69,21 +73,25 @@ def adjust_stock(product_id):
             if new_w1_qty < 0:
                 # Warehouse 1 alone can't absorb the full subtraction.
                 # Zero out all warehouses, then set warehouse 1 to the target total.
+                # Zeroes out all warehouses before reapplying a large negative adjustment to a single location.
                 cursor.execute(
                     "UPDATE warehouse_inventory SET quantity_stored = 0 WHERE product_id = %s",
                     (product_id,)
                 )
+                # Sets the primary warehouse quantity to the new calculated total.
                 cursor.execute(
                     "UPDATE warehouse_inventory SET quantity_stored = %s WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
                     (new_total, product_id)
                 )
             else:
                 # Warehouse 1 can absorb the full delta, update only it.
+                # Updates the primary warehouse quantity with the calculated delta.
                 cursor.execute(
                     "UPDATE warehouse_inventory SET quantity_stored = %s WHERE product_id = %s ORDER BY warehouse_id LIMIT 1",
                     (new_w1_qty, product_id)
                 )
         conn.commit()
+        # Final verification call to get the updated aggregate stock level after the commit.
         cursor.execute(
             "SELECT IFNULL(SUM(quantity_stored), 0) AS total_stock FROM warehouse_inventory WHERE product_id = %s",
             (product_id,)
